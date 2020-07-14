@@ -506,7 +506,7 @@ ktxTexture2_CompressBasisEx(ktxTexture2* This, ktxBasisParams* params)
     if (num_components == 1)
         comp_mapping = r_to_rgba_mapping;
 
-    PFNBUCOPYCB copycb;
+    PFNBUCOPYCB copycb = 0;
     if (comp_mapping) {
         copycb = swizzle_to_rgba;
     } else {

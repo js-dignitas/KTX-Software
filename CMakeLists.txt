@@ -44,10 +44,20 @@ endif()
 # option( KTX_FEATURE_KTX2 "KTX version 2" ON )
 # option( KTX_FEATURE_WRITE "Create KTX files" ON )
 
+option(MAKE_UNITY_DLL "Make Unity DLL" OFF )
+
 set( KTX_FEATURE_WRITE ON )
 set( KTX_FEATURE_KTX1 ON )
 set( KTX_FEATURE_KTX2 ON )
 set( KTX_FEATURE_VULKAN ON )
+
+# Don't bother with the opengl function lookup if making the unity dll. We aren't 
+# uploading textures to GPU with ktx library anyways
+if (NOT MAKE_UNITY_DLL)
+    add_definitions("-DUSE_OPENGL")
+else()
+    set( KTX_FEATURE_VULKAN OFF )
+endif()
 
 # Platform specific settings
 
@@ -229,6 +239,8 @@ if(WIN32)
         "KTX_APICALL=__declspec(dllexport)"
         BASISU_NO_ITERATOR_DEBUG_LEVEL
     )
+
+    if (NOT MAKE_UNITY_DLL)
     target_sources(
         ktx
     PRIVATE
@@ -236,6 +248,14 @@ if(WIN32)
         # option when a .def file is seen in sources.
         lib/internalexport.def
     )
+        add_definitions("-DKTX_APIENTRY=__stdcall")
+    else()
+        # Keep all the functions as __cdecl.  There were plenty of errors
+        # when compiling UWP x86
+        add_definitions("-DKTX_APIENTRY=__cdecl")
+    endif()
+
+
 elseif(EMSCRIPTEN)
     target_compile_definitions(ktx PRIVATE
         # To reduce size, don't support transcoding to formats not
@@ -325,13 +345,39 @@ endif()
 set(KTX_BUILD_DIR "${CMAKE_BINARY_DIR}")
 
 if(WIN32)
+    string(TOLOWER "${CMAKE_GENERATOR_PLATFORM}" WIN_ARCH_STRING)
+    if (NOT WIN_ARCH_STRING)
+        string(TOLOWER "${CMAKE_VS_EFFECTIVE_PLATFORMS}" WIN_ARCH_STRING)
+    endif()
+    message("Using Windows architecture \"${WIN_ARCH_STRING}\"")
+
     target_link_libraries(
         ktx
-        ${CMAKE_CURRENT_SOURCE_DIR}/other_lib/win/Release-x64/zstd_static.lib
-    )
+        "${CMAKE_CURRENT_SOURCE_DIR}/other_lib/win/Release-${WIN_ARCH_STRING}/zstd_static.lib")
+
     # By wrapping in generator expression we force multi configuration generators (like Visual Studio)
     # to take the exact path and not change it.
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY $<1:${KTX_BUILD_DIR}/$<CONFIG>>)
+
+    if (MAKE_UNITY_DLL)
+    target_sources(
+        ktx
+    PRIVATE
+        interface/basisu_c_binding/src/basisu_c_binding.cpp
+    )
+    
+    target_include_directories(
+    ktx
+PRIVATE
+    interface/basisu_c_binding/inc
+    $<TARGET_PROPERTY:ktx,INTERFACE_INCLUDE_DIRECTORIES>
+    ${PROJECT_SOURCE_DIR}/utils
+
+    )
+
+    add_definitions("-DKTX_BASISU_C_BINDINGS")
+    add_definitions("-DDLL_EXPORT_FLAG")
+    endif()
 
 elseif(APPLE)
     if(IOS)

@@ -277,7 +277,7 @@ ktxTexture1_writeToStream(ktxTexture1* This, ktxStream* dststr)
 {
     KTX_header header = KTX_IDENTIFIER_REF;
     KTX_error_code result = KTX_SUCCESS;
-    ktx_uint8_t* pKvd;
+    ktx_uint8_t* pKvd = 0;
     ktx_uint32_t level, levelOffset;
 
     if (!dststr) {

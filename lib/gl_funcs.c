@@ -130,6 +130,7 @@ struct glFuncPtrs gl;
 #if WINDOWS
 static HMODULE
 ktxFindOpenGL() {
+#ifdef USE_OPENGL
 	HMODULE module = 0;
     BOOL found;
     // Use GetModule not LoadLibrary so we only succeed if the process
@@ -172,6 +173,9 @@ ktxFindOpenGL() {
             return module;
 	}
 	return module; // Keep the compiler happy!
+#else
+    return 0;
+#endif
 }
 #endif
 
